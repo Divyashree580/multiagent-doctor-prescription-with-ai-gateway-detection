@@ -53,7 +53,7 @@ export const handleExportPDFRecords = async (record: any) => {
 
     // Prepare chat table
     const rows = await Promise.all(
-        record.chats.map(async (chat) => {
+        record.chats.map(async (chat: any) => {
             const markdown = chat.text || chat.content || "";
 
             const formattedText = await convertMarkdownToPrintableText(markdown);
