@@ -1,6 +1,6 @@
 "use client"
 
-import { MessageSquare, Pill, Languages, LogOut, User, FileText } from "lucide-react"
+import { MessageSquare, Pill, Languages, LogOut, User, FileText, Shield, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useEffect, useState } from "react"
@@ -35,6 +35,20 @@ export default function DashboardSidebar({ activeTab, onTabChange }: DashboardSi
             label: "Patient Records",
             icon: FileText,
             description: "View consultation history",
+        },
+        {
+            id: "violations",
+            label: "Violations Log",
+            icon: Shield,
+            description: "Track intercepted requests",
+            href: "/violations"
+        },
+        {
+            id: "compliance",
+            label: "Compliance Hub",
+            icon: AlertTriangle,
+            description: "Monitor strict AI policies",
+            href: "/compliance"
         },
     ]
 
@@ -85,7 +99,7 @@ export default function DashboardSidebar({ activeTab, onTabChange }: DashboardSi
                     return (
                         <button
                             key={item.id}
-                            onClick={() => onTabChange(item.id)}
+                            onClick={() => item.href ? window.location.href = item.href : onTabChange(item.id)}
                             className={`w-full text-left p-4 rounded-lg transition-all duration-200 group ${isActive
                                 ? "bg-primary/10 border border-primary/30 text-primary"
                                 : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground border border-transparent"
