@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  certificateId String? @unique
+  location String?
+  chats     Chat[]
+}
+
+model Chat {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id])
+  chats           Json[]
+  patientName    String
+  patientAge     Int?
+  patientGender  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AgentAuditLog {
+  id               String    @id @default(cuid())
+  sessionId        String    // Groups all calls within a single user session
+  traceId          String    // Groups Supervisor + all Specialist calls for one user query
+  parentTraceId    String?   // Set on Specialist calls; references Supervisor's traceId
+  agentType        AgentType // SUPERVISOR | SPECIALIST
+  specialistDomain String?   // e.g., "CARDIOLOGY", "DERMATOLOGY" (null for Supervisor)
+  modelId          String    // e.g., "qwen/qwen3-32b", "llama-3.1-8b-instant"
+  callDirection    CallDirection // REQUEST | RESPONSE
+  complianceStatus ComplianceStatus // COMPLIANT | VIOLATION | NEEDS_REVIEW
+  violationType    String?   // e.g., "PRESCRIPTION_DETECTED", "ILLEGAL_REQUEST"
+  policyRuleId     String?   // The specific rule that triggered the flag
+  contentHash      String    // SHA-256 of the raw content
+  contentSummary   String?   // Short non-identifying summary from compliance classifier
+  latencyMs        Int       // Time taken for compliance check in milliseconds
+  blocked          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  @@index([sessionId])
+  @@index([traceId])
+  @@index([complianceStatus])
+  @@index([createdAt])
+}
+
+enum AgentType {
+  SUPERVISOR
+  SPECIALIST
+}
+
+enum CallDirection {
+  REQUEST
+  RESPONSE
+}
+
+enum ComplianceStatus {
+  COMPLIANT
+  VIOLATION
+  NEEDS_REVIEW
+}
