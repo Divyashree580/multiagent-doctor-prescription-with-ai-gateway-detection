@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { AuditLogger } from '@/lib/compliance/auditLogger';
 
 /**
  * GET /api/audit/logs
@@ -73,10 +74,21 @@ export async function GET(request: NextRequest) {
       prisma.agentAuditLog.count({ where }),
     ]);
 
+    // Enrich logs with explanations and reasons
+    const enrichedLogs = logs.map((log) => ({
+      ...log,
+      explanation: AuditLogger.generateViolationExplanation(
+        log.violationType,
+        log.contentSummary,
+        log.complianceStatus
+      ),
+      reason: AuditLogger.generateRuleBreakdownReason(log.violationType),
+    }));
+
     return NextResponse.json(
       {
         success: true,
-        data: logs,
+        data: enrichedLogs,
         pagination: {
           page,
           limit,

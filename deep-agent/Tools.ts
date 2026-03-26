@@ -18,52 +18,57 @@ import crypto from 'crypto';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const createDiagnosisTool = (agent: any, name: string, description: string) => {
     return tool(
-        async ({ age, gender, symptoms, history }) => {
-            const prompt = `
+        async ({ age, gender, symptoms, history = "" }) => {
+            try {
+                const prompt = `
 You are receiving patient details.
 
 Age: ${age}
 Gender: ${gender}
 Symptoms: ${symptoms}
-Medical History: ${history ?? "None"}
+Medical History: ${history || "None"}
 
 Diagnose the condition and respond according to instructions.
 `.trim();
 
-            const start = Date.now();
-            const traceId = crypto.randomUUID();
+                const start = Date.now();
+                const traceId = crypto.randomUUID();
 
-            const result = await agent.invoke({
-                messages: [{ role: "user", content: prompt }]
-            });
+                const result = await agent.invoke({
+                    messages: [{ role: "user", content: prompt }]
+                });
 
-            const lastMessage = result.messages.at(-1);
-            const outputStr = lastMessage.text || lastMessage.content || "";
+                const lastMessage = result.messages?.at(-1) || {};
+                const outputStr = lastMessage.text || lastMessage.content || "Unable to generate diagnosis";
 
-            // Log the specialist call
-            logAgentCall({
-                sessionId: "SPECIALIST_INTERNAL", // Detached context in basic setup
-                traceId,
-                agentType: "SPECIALIST",
-                specialistDomain: name.toUpperCase(),
-                modelId: "llama-3.1-8b-instant",
-                callDirection: "RESPONSE",
-                complianceStatus: "COMPLIANT", // Top-level interceptors check actual policy
-                rawContent: outputStr,
-                latencyMs: Date.now() - start,
-                blocked: false
-            });
+                // Log the specialist call
+                logAgentCall({
+                    sessionId: "SPECIALIST_INTERNAL", // Detached context in basic setup
+                    traceId,
+                    agentType: "SPECIALIST",
+                    specialistDomain: name.toUpperCase(),
+                    modelId: "llama-3.1-8b-instant",
+                    callDirection: "RESPONSE",
+                    complianceStatus: "COMPLIANT", // Top-level interceptors check actual policy
+                    rawContent: outputStr,
+                    latencyMs: Date.now() - start,
+                    blocked: false
+                });
 
-            return outputStr;
+                return outputStr;
+            } catch (toolError) {
+                console.error(`Error in ${name}:`, toolError);
+                return `Error in ${name}: ${toolError instanceof Error ? toolError.message : "Unknown error"}`;
+            }
         },
         {
             name,
             description,
             schema: z.object({
-                age: z.number(),
-                gender: z.enum(["male", "female", "other"]),
-                symptoms: z.string(),
-                history: z.string().optional(),
+                age: z.number().describe("Age of the patient in years"),
+                gender: z.enum(["male", "female", "other"]).describe("Gender of the patient"),
+                symptoms: z.string().describe("Description of symptoms"),
+                history: z.string().optional().describe("Medical history of the patient"),
             }),
         }
     );

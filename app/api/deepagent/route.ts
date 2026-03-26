@@ -3,7 +3,9 @@ import { supervisorAgent } from "@/deep-agent/supervisiorAgent";
 import { HumanMessage } from "@langchain/core/messages";
 import { checkRequestCompliance, checkResponseCompliance } from "@/lib/compliance/classifier";
 import { logAgentCall } from "@/lib/compliance/auditLogger";
+import { MedicalSafetyDetector } from "@/lib/compliance/medicalSafetyDetector";
 import crypto from 'crypto';
+
 
 export async function POST(request: Request) {
     try {
@@ -40,16 +42,23 @@ export async function POST(request: Request) {
         }
         
         // --- Core Agent Invocation ---
-        const result = await supervisorAgent.invoke({
-            messages: [new HumanMessage(prompt)]
-        });
+        let output = "";
+        try {
+            const result = await supervisorAgent.invoke(
+                { messages: [new HumanMessage(prompt)] },
+                { recursionLimit: 25 }
+            );
 
-        // Extract the final message from the agent
-        const messages = result.messages || [];
-        const finalMessage = messages[messages.length - 1];
-        
-        const contentRaw = finalMessage?.content || "No output generated";
-        const output = typeof contentRaw === "string" ? contentRaw : JSON.stringify(contentRaw);
+            // Extract the final message from the agent
+            const messages = result.messages || [];
+            const finalMessage = messages[messages.length - 1];
+            
+            const contentRaw = finalMessage?.content || "No output generated";
+            output = typeof contentRaw === "string" ? contentRaw : JSON.stringify(contentRaw);
+        } catch (agentError) {
+            console.error("Agent invocation error:", agentError);
+            throw new Error(`Agent failed: ${agentError instanceof Error ? agentError.message : "Unknown error"}`);
+        }
 
         // 2. Intercept and classify agent response
         const resCompliance = await checkResponseCompliance(output);
@@ -70,9 +79,13 @@ export async function POST(request: Request) {
         });
 
         if (resCompliance.status === "VIOLATION") {
-            const fallbackResponse = "Based on the symptoms you've described, I can provide some general context, but I'm unable to suggest specific medications or dosages. Please consult a licensed healthcare provider for personalized medical advice and any prescriptions you may need.";
-            return NextResponse.json({ status: true, message: fallbackResponse });
+            // Option A: Redact the specific medications and dosages from the AI's response instead of blocking entirely
+            const redactedOutput = MedicalSafetyDetector.redactMedicalInfo(output);
+            
+            // Returns the original answer with drugs and dosages replaced by *****
+            return NextResponse.json({ status: true, message: redactedOutput });
         }
+
 
         return NextResponse.json({ 
             status: true, 

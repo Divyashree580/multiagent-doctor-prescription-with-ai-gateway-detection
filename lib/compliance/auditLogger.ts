@@ -18,6 +18,8 @@ export interface LogEntry {
   policyRuleId?: string;
   rawContent: string;
   contentSummary?: string;
+  explanation?: string;
+  detailedReason?: string;
   latencyMs: number;
   blocked: boolean;
 }
@@ -196,5 +198,69 @@ export class AuditLogger {
         count: item._count,
       })),
     };
+  }
+
+  /**
+   * Generate a human-readable explanation for why a violation occurred
+   */
+  static generateViolationExplanation(
+    violationType: string | null | undefined,
+    contentSummary: string | null | undefined,
+    complianceStatus: string
+  ): string {
+    if (complianceStatus === 'COMPLIANT') {
+      return 'This log passed all compliance checks and poses no medical safety risk.';
+    }
+
+    const explanations: Record<string, string> = {
+      PRESCRIPTION_DETECTED:
+        'The response contains prescription recommendations, which is not allowed. AI assistants cannot prescribe medications as this requires licensed medical professionals.',
+      CONTROLLED_SUBSTANCE_DETECTED:
+        'Controlled substances were detected in the content. Handling controlled substances requires professional medical oversight.',
+      SELF_HARM_REQUEST:
+        'The content contains references to self-harm or suicide. Medical safety protocols prohibit assisting with such requests.',
+      DOSAGE_ADVICE_DETECTED:
+        'Dosage recommendations or instructions were provided. Only licensed healthcare providers can advise on medication dosages.',
+      ILLEGAL_ACTIVITY_DETECTED:
+        'The content appears to reference illegal activities related to pharmaceuticals or medical services.',
+      PROFESSIONAL_IMPERSONATION:
+        'The response falsely claims medical professional status or diagnostic authority, which violates compliance rules.',
+      DIAGNOSTIC_CLAIM:
+        'The content makes definitive diagnostic claims about medical conditions, which should only come from licensed professionals.',
+      NEEDS_REVIEW:
+        'This interaction requires manual review as it contains potentially concerning elements that may violate compliance policies.',
+    };
+
+    return (
+      explanations[violationType || ''] ||
+      'This log triggered a compliance violation. Please review the detailed content for more information.'
+    );
+  }
+
+  /**
+   * Generate detailed trace information showing why rule was broken
+   */
+  static generateRuleBreakdownReason(violationType: string | null | undefined): string {
+    const reasons: Record<string, string> = {
+      PRESCRIPTION_DETECTED:
+        'Rule: No medication prescriptions. Breaking reason: Medical prescription advice was provided in the response, violating the prohibition on prescriptive medical guidance.',
+      CONTROLLED_SUBSTANCE_DETECTED:
+        'Rule: No controlled substance handling. Breaking reason: Controlled substances or illegal drugs were mentioned or discussed in the content.',
+      SELF_HARM_REQUEST:
+        'Rule: Prohibition on self-harm assistance. Breaking reason: The request involves self-harm or suicidal content, immediately blocked for medical safety.',
+      DOSAGE_ADVICE_DETECTED:
+        'Rule: No dosage instructions. Breaking reason: Specific dosage or medication usage instructions were provided without medical oversight.',
+      ILLEGAL_ACTIVITY_DETECTED:
+        'Rule: No illegal pharmaceutical activity. Breaking reason: Content references obtaining, distributing, or using pharmaceuticals illegally.',
+      PROFESSIONAL_IMPERSONATION:
+        'Rule: No false medical credentials. Breaking reason: Response falsely claims to be from/represent a licensed medical professional.',
+      DIAGNOSTIC_CLAIM:
+        'Rule: No definitive diagnoses. Breaking reason: The response makes authoritative medical diagnoses without proper medical licensing.',
+    };
+
+    return (
+      reasons[violationType || ''] ||
+      'The compliance rule was triggered due to content that violates medical safety policies.'
+    );
   }
 }

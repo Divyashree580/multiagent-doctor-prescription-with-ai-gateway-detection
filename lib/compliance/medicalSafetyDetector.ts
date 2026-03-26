@@ -13,11 +13,21 @@ export interface MedicalSafetyAnalysis {
   hasIllegalActivity: boolean;
   hasProfessionalImpersonation: boolean;
   hasDiagnosticClaim: boolean;
+  symptomVerification?: SymptomVerificationResult;
   riskLevel: 'SAFE' | 'WARNING' | 'CRITICAL';
   violations: string[];
   detectedDrugs: string[];
   detectedDosages: string[];
 }
+
+export interface SymptomVerificationResult {
+  isVerified: boolean;
+  genderCompatible: boolean;
+  conditionCompatible: boolean;
+  flaggedSymptoms: string[];
+  notes: string[];
+}
+
 
 export class MedicalSafetyDetector {
   // Controlled substances list (DEA schedules I-V + common prescribed controlled drugs)
@@ -134,6 +144,219 @@ export class MedicalSafetyDetector {
     /you\s+certainly\s+have\s+(?:the\s+)?(?:disease|condition)/i,
   ];
 
+  // Female-specific symptoms that should NOT appear in male patients
+  private static readonly FEMALE_ONLY_SYMPTOMS = new Set([
+    'menstruation', 'period', 'menstrual', 'vaginal', 'vulvar', 'vulva', 
+    'labia', 'pregnancy', 'pregnant', 'miscarriage', 'postpartum',
+    'breast pain', 'breast tenderness', 'mastitis', 'galactorrhea',
+    'gynecological', 'ovarian', 'uterine', 'cervical', 'endometriosis',
+    'fibroids', 'pcos', 'polycystic ovary', 'menopause', 'hormonal replacement'
+  ]);
+
+  // Male-specific symptoms that should NOT appear in female patients
+  private static readonly MALE_ONLY_SYMPTOMS = new Set([
+    'prostate', 'testicular', 'testicle', 'scrotal', 'scrotum',
+    'erectile dysfunction', 'erectile', 'impotence', 'benign prostatic',
+    'bph', 'penile', 'ejaculation', 'semen'
+  ]);
+
+  // Symptom mappings by medical condition
+  private static readonly CONDITION_SYMPTOM_MAPPINGS: Record<string, Set<string>> = {
+    'diabetes': new Set([
+      'polyuria', 'polydipsia', 'fatigue', 'weight loss', 'blurred vision',
+      'tingling', 'numbness', 'neuropathy', 'high blood sugar', 'hyperglycemia',
+      'ketoacidosis', 'frequent urination', 'excessive thirst'
+    ]),
+    'hypertension': new Set([
+      'high blood pressure', 'headache', 'dizziness', 'chest pain',
+      'shortness of breath', 'nosebleed', 'vision problems', 'fatigue'
+    ]),
+    'asthma': new Set([
+      'wheezing', 'shortness of breath', 'chest tightness', 'cough',
+      'breathing difficulty', 'dyspnea', 'sleep disturbance', 'bronchospasm'
+    ]),
+    'heart disease': new Set([
+      'chest pain', 'angina', 'dyspnea', 'palpitations', 'arrhythmia',
+      'shortness of breath', 'fatigue', 'edema', 'swelling', 'syncope'
+    ]),
+    'copd': new Set([
+      'chronic cough', 'dyspnea', 'shortness of breath', 'wheezing',
+      'mucus production', 'sputum', 'emphysema', 'chronic bronchitis'
+    ]),
+    'arthritis': new Set([
+      'joint pain', 'joint swelling', 'stiffness', 'reduced mobility',
+      'inflammation', 'arthralgia', 'limited range of motion'
+    ]),
+    'thyroid': new Set([
+      'fatigue', 'weight change', 'temperature sensitivity', 'goiter',
+      'thyroid nodule', 'metabolism change', 'hypothyroidism', 'hyperthyroidism'
+    ]),
+    'depression': new Set([
+      'sadness', 'hopelessness', 'sleep disturbance', 'appetite change',
+      'fatigue', 'concentration difficulty', 'suicidal thoughts', 'anhedonia'
+    ]),
+    'anxiety': new Set([
+      'anxiety', 'worry', 'panic attack', 'tremor', 'sweating',
+      'palpitations', 'shortness of breath', 'dizziness', 'fear'
+    ]),
+    'migraine': new Set([
+      'headache', 'migraine', 'photophobia', 'phonophobia', 'nausea',
+      'vomiting', 'aura', 'throbbing pain', 'unilateral'
+    ]),
+    'gastric': new Set([
+      'abdominal pain', 'nausea', 'vomiting', 'diarrhea', 'constipation',
+      'acid reflux', 'heartburn', 'gerd', 'indigestion', 'bloating'
+    ]),
+    'uti': new Set([
+      'dysuria', 'urinary frequency', 'urinary urgency', 'hematuria',
+      'cloudy urine', 'foul odor', 'lower back pain', 'bladder'
+    ]),
+    'infection': new Set([
+      'fever', 'chills', 'malaise', 'fatigue', 'body ache', 'myalgia',
+      'elevated temperature', 'infection', 'inflammation', 'inflammatory'
+    ])
+  };
+
+  // Age-appropriate symptom validations
+  private static readonly AGE_SPECIFIC_VALIDATION: Record<string, Set<string>> = {
+    'child': new Set([
+      'ear infection', 'croup', 'chicken pox', 'measles', 'mumps',
+      'teething', 'colic', 'diaper rash', 'growth milestones'
+    ]),
+    'adolescent': new Set([
+      'acne', 'growth spurt', 'mood changes', 'voice changes',
+      'menstruation', 'puberty', 'school stress'
+    ]),
+    'adult': new Set([
+      'work stress', 'lifestyle diseases', 'chronic conditions',
+      'reproductive health', 'hormonal changes'
+    ]),
+    'elderly': new Set([
+      'arthritis', 'memory loss', 'osteoporosis', 'falls', 'incontinence',
+      'frailty', 'polypharmacy', 'age-related decline'
+    ])
+  };
+
+  /**
+   * Verify symptoms against patient gender and medical condition
+   */
+  static verifySymptoms(
+    symptoms: string[],
+    patientGender?: string,
+    medicalCondition?: string,
+    patientAge?: number
+  ): SymptomVerificationResult {
+    const flaggedSymptoms: string[] = [];
+    const notes: string[] = [];
+    let genderCompatible = true;
+    let conditionCompatible = true;
+
+    if (!symptoms || symptoms.length === 0) {
+      return {
+        isVerified: true,
+        genderCompatible: true,
+        conditionCompatible: true,
+        flaggedSymptoms: [],
+        notes: ['No symptoms provided'],
+      };
+    }
+
+    const lowerSymptoms = symptoms.map(s => s.toLowerCase());
+
+    // Gender-based verification
+    if (patientGender) {
+      const normalizedGender = patientGender.toLowerCase();
+
+      if (normalizedGender.includes('male') || normalizedGender === 'm') {
+        const invalidMaleSymptoms = lowerSymptoms.filter(symptom =>
+          Array.from(this.FEMALE_ONLY_SYMPTOMS).some(fs =>
+            symptom.includes(fs.toLowerCase())
+          )
+        );
+        if (invalidMaleSymptoms.length > 0) {
+          genderCompatible = false;
+          flaggedSymptoms.push(...invalidMaleSymptoms);
+          notes.push(
+            `RULE_GENDER_001: Female-specific symptoms detected in male patient: ${invalidMaleSymptoms.join(', ')}`
+          );
+        }
+      } else if (normalizedGender.includes('female') || normalizedGender === 'f') {
+        const invalidFemaleSymptoms = lowerSymptoms.filter(symptom =>
+          Array.from(this.MALE_ONLY_SYMPTOMS).some(ms =>
+            symptom.includes(ms.toLowerCase())
+          )
+        );
+        if (invalidFemaleSymptoms.length > 0) {
+          genderCompatible = false;
+          flaggedSymptoms.push(...invalidFemaleSymptoms);
+          notes.push(
+            `RULE_GENDER_002: Male-specific symptoms detected in female patient: ${invalidFemaleSymptoms.join(', ')}`
+          );
+        }
+      }
+    }
+
+    // Medical condition verification
+    if (medicalCondition) {
+      const normalizedCondition = medicalCondition
+        .toLowerCase()
+        .replace(/\s+/g, '_');
+
+      const expectedSymptoms = this.CONDITION_SYMPTOM_MAPPINGS[normalizedCondition];
+
+      if (expectedSymptoms) {
+        const matchedSymptoms = lowerSymptoms.filter(symptom =>
+          Array.from(expectedSymptoms).some(es =>
+            symptom.includes(es.toLowerCase())
+          )
+        );
+
+        if (matchedSymptoms.length === 0) {
+          conditionCompatible = false;
+          notes.push(
+            `RULE_CONDITION_001: Symptoms do not match reported condition (${medicalCondition}). ` +
+            `Expected symptoms: ${Array.from(expectedSymptoms).slice(0, 5).join(', ')}...`
+          );
+        } else {
+          notes.push(
+            `RULE_CONDITION_002: Found ${matchedSymptoms.length} symptom(s) consistent with ${medicalCondition}`
+          );
+        }
+      }
+    }
+
+    // Age-based verification
+    if (patientAge) {
+      let ageGroup = '';
+      if (patientAge < 12) ageGroup = 'child';
+      else if (patientAge < 18) ageGroup = 'adolescent';
+      else if (patientAge < 65) ageGroup = 'adult';
+      else ageGroup = 'elderly';
+
+      const ageSpecificSymptoms = this.AGE_SPECIFIC_VALIDATION[ageGroup];
+      if (ageSpecificSymptoms) {
+        const matchedAgeSymptoms = lowerSymptoms.filter(symptom =>
+          Array.from(ageSpecificSymptoms).some(as =>
+            symptom.includes(as.toLowerCase())
+          )
+        );
+        if (matchedAgeSymptoms.length > 0) {
+          notes.push(
+            `RULE_AGE_001: Symptoms consistent with ${ageGroup} age group: ${matchedAgeSymptoms.join(', ')}`
+          );
+        }
+      }
+    }
+
+    return {
+      isVerified: genderCompatible && conditionCompatible && flaggedSymptoms.length === 0,
+      genderCompatible,
+      conditionCompatible,
+      flaggedSymptoms,
+      notes,
+    };
+  }
+
   /**
    * Analyze a user request for medical safety violations
    */
@@ -224,6 +447,75 @@ export class MedicalSafetyDetector {
   }
 
   /**
+   * Analyze a user request with patient context (gender, medical condition, age)
+   * This enables symptom verification based on patient-specific rules
+   */
+  static analyzeRequestWithContext(
+    request: string,
+    patientGender?: string,
+    medicalCondition?: string,
+    patientAge?: number,
+    symptoms?: string[]
+  ): MedicalSafetyAnalysis {
+    // First perform standard analysis
+    const analysis = this.analyzeRequest(request);
+
+    // Extract symptoms from request if not explicitly provided
+    const extractedSymptoms = symptoms || this.extractSymptoms(request);
+
+    // Perform symptom verification
+    if (extractedSymptoms.length > 0) {
+      const verificationResult = this.verifySymptoms(
+        extractedSymptoms,
+        patientGender,
+        medicalCondition,
+        patientAge
+      );
+
+      // Add symptom verification results
+      analysis.symptomVerification = verificationResult;
+
+      // Escalate risk level if symptom verification fails
+      if (!verificationResult.isVerified) {
+        if (analysis.riskLevel !== 'CRITICAL') {
+          analysis.riskLevel = 'WARNING';
+        }
+        analysis.violations.push(...verificationResult.notes);
+      }
+    }
+
+    return analysis;
+  }
+
+  /**
+   * Extract symptoms from medical text
+   */
+  private static extractSymptoms(text: string): string[] {
+    const symptoms: string[] = [];
+    const lowerText = text.toLowerCase();
+
+    // Common symptom keywords
+    const symptomKeywords = [
+      'pain', 'ache', 'fever', 'cough', 'sneeze', 'nausea', 'vomiting',
+      'fatigue', 'weakness', 'headache', 'dizziness', 'swelling', 'rash',
+      'itching', 'burning', 'numbness', 'tingling', 'shortness of breath',
+      'chest pain', 'cramp', 'bloating', 'constipation', 'diarrhea',
+      'inflammation', 'infection', 'allergy', 'bleeding', 'discharge',
+      'tremor', 'sweating', 'chills', 'anxiety', 'depression', 'insomnia',
+      'loss of appetite', 'weight loss', 'weight gain', 'difficulty concentrating',
+      'memory problems', 'mood changes', 'irritability'
+    ];
+
+    for (const symptom of symptomKeywords) {
+      if (lowerText.includes(symptom)) {
+        symptoms.push(symptom);
+      }
+    }
+
+    return symptoms;
+  }
+
+  /**
    * Analyze an AI response for medical safety violations
    */
   static analyzeResponse(response: string): MedicalSafetyAnalysis {
@@ -290,6 +582,58 @@ export class MedicalSafetyDetector {
       detectedDrugs,
       detectedDosages,
     };
+  }
+
+  /**
+   * Analyze an AI response with patient context (gender, medical condition, age)
+   * This validates the response recommendations against patient-specific guidelines
+   */
+  static analyzeResponseWithContext(
+    response: string,
+    patientGender?: string,
+    medicalCondition?: string,
+    patientAge?: number,
+    symptoms?: string[]
+  ): MedicalSafetyAnalysis {
+    // First perform standard response analysis
+    const analysis = this.analyzeResponse(response);
+
+    // Extract symptoms mentioned in response if not explicitly provided
+    const responseSymptoms = symptoms || this.extractSymptoms(response);
+
+    // Verify that recommended symptoms are appropriate for patient profile
+    if (responseSymptoms.length > 0) {
+      const verificationResult = this.verifySymptoms(
+        responseSymptoms,
+        patientGender,
+        medicalCondition,
+        patientAge
+      );
+
+      // Add symptom verification results
+      analysis.symptomVerification = verificationResult;
+
+      // If recommendation includes inappropriate symptoms for gender/condition, escalate
+      if (!verificationResult.isVerified && !verificationResult.genderCompatible) {
+        analysis.violations.push(
+          `RULE_RESPONSE_GENDER: Response recommends symptoms incompatible with patient gender`
+        );
+        if (analysis.riskLevel !== 'CRITICAL') {
+          analysis.riskLevel = 'WARNING';
+        }
+      }
+
+      if (!verificationResult.isVerified && !verificationResult.conditionCompatible) {
+        analysis.violations.push(
+          `RULE_RESPONSE_CONDITION: Response recommends symptoms misaligned with reported medical condition`
+        );
+        if (analysis.riskLevel !== 'CRITICAL') {
+          analysis.riskLevel = 'WARNING';
+        }
+      }
+    }
+
+    return analysis;
   }
 
   /**
@@ -451,5 +795,37 @@ export class MedicalSafetyDetector {
     // Extract rule ID from first violation
     const match = violations[0].match(/RULE_\d+/);
     return match ? match[0] : null;
+  }
+
+  /**
+   * Redact detected medical information (drugs and dosages) from text.
+   */
+  static redactMedicalInfo(text: string): string {
+    const analysis = this.analyzeResponse(text);
+    let redactedText = text;
+
+    // Redact specific drugs
+    if (analysis.detectedDrugs && analysis.detectedDrugs.length > 0) {
+      // Sort by length descending to match mult-word drugs first if there are any
+      const sortedDrugs = [...new Set(analysis.detectedDrugs)].sort((a, b) => b.length - a.length);
+      for (const drug of sortedDrugs) {
+        // Use a case-insensitive regex with word boundaries
+        const regex = new RegExp(`\\b${drug}\\b`, 'gi');
+        redactedText = redactedText.replace(regex, '*****');
+      }
+    }
+
+    // Redact dosages
+    if (analysis.detectedDosages && analysis.detectedDosages.length > 0) {
+      const sortedDosages = [...new Set(analysis.detectedDosages)].sort((a, b) => b.length - a.length);
+      for (const dosage of sortedDosages) {
+        // Escape standard regex characters
+        const escapedDosage = dosage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedDosage}\\b`, 'gi');
+        redactedText = redactedText.replace(regex, '*****');
+      }
+    }
+
+    return redactedText;
   }
 }

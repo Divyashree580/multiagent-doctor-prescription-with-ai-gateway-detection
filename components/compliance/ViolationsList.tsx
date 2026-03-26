@@ -19,6 +19,8 @@ interface Violation {
   violationType: string;
   policyRuleId: string;
   blocked: boolean;
+  contentSummary?: string;
+  explanation?: string;
 }
 
 interface ViolationsListProps {
@@ -59,47 +61,69 @@ export default function ViolationsList({ violations }: ViolationsListProps) {
 
   return (
     <>
-      <div className="space-y-3 max-h-96 overflow-y-auto">
+      <div className="space-y-3 max-h-[600px] overflow-y-auto">
         {violations.map((violation) => (
           <div
             key={violation.id}
-            className="border rounded-lg p-3 hover:bg-gray-50 transition"
+            className="border border-red-200 rounded-lg p-4 hover:bg-red-50 transition"
           >
-            <div className="flex justify-between items-start gap-2">
-              <div className="flex-1">
-                <div className="flex gap-2 items-center mb-1">
+            <div className="grid grid-cols-1 gap-3">
+              {/* Top Row: Badges and Controls */}
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex gap-2 items-center flex-wrap">
                   <Badge variant={getStatusBadgeVariant(violation.complianceStatus)}>
                     {violation.complianceStatus}
                   </Badge>
-                  <Badge variant="outline">{violation.agentType}</Badge>
+                  <Badge variant="outline" className="text-xs">{violation.agentType}</Badge>
                   {violation.blocked && (
                     <Badge variant="destructive" className="text-xs">
                       🚫 Blocked
                     </Badge>
                   )}
                 </div>
-                <div className="text-sm space-y-1">
-                  <p>
-                    <span className="font-medium">Rule:</span> {violation.policyRuleId}
-                  </p>
-                  <p>
-                    <span className="font-medium">Violation:</span> {violation.violationType}
-                  </p>
-                  <p className="text-gray-500 text-xs">
-                    Session: {violation.sessionId.substring(0, 8)}...
-                  </p>
-                  <p className="text-gray-500 text-xs">
-                    {new Date(violation.createdAt).toLocaleString()}
-                  </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleViewDetails(violation)}
+                  className="whitespace-nowrap"
+                >
+                  View Details →
+                </Button>
+              </div>
+
+              {/* Details Row */}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">Rule:</span>
+                  <p className="text-xs font-mono text-gray-600">{violation.policyRuleId}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Violation Type:</span>
+                  <p className="text-xs text-gray-600">{violation.violationType.replace(/_/g, ' ')}</p>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleViewDetails(violation)}
-              >
-                Details →
-              </Button>
+
+              {/* Why Rule Was Broken */}
+              {violation.explanation && (
+                <div className="bg-red-50 border border-red-300 rounded p-2">
+                  <p className="text-xs font-semibold text-red-700">Why Rule Broken:</p>
+                  <p className="text-xs text-red-900 mt-1 line-clamp-2">{violation.explanation}</p>
+                </div>
+              )}
+
+              {/* Content Summary */}
+              {violation.contentSummary && (
+                <div className="bg-gray-50 border border-gray-300 rounded p-2">
+                  <p className="text-xs font-semibold text-gray-700">Summary:</p>
+                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">{violation.contentSummary}</p>
+                </div>
+              )}
+
+              {/* Session and Time */}
+              <div className="flex justify-between items-center text-xs text-gray-500">
+                <span>Session: {violation.sessionId.substring(0, 12)}...</span>
+                <span>{new Date(violation.createdAt).toLocaleString()}</span>
+              </div>
             </div>
           </div>
         ))}

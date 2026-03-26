@@ -27,6 +27,8 @@ model Chat {
   patientName    String
   patientAge     Int?
   patientGender  String?
+  medicalCondition String?  // Store patient's primary medical condition(s)
+  symptoms        String[]  // Array of reported symptoms
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

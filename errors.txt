@@ -1,0 +1,36 @@
+deep-agent/supervisiorAgent.ts(49,5): error TS2353: Object literal may only specify known properties, and 'systemPrompt' does not exist in type 'CreateReactAgentParams<AnnotationRoot<{ messages: BinaryOperatorAggregate<BaseMessage<MessageStructure, MessageType>[], Messages>; }>, Record<...>, AnyAnnotationRoot>'.
+lib/export-pdf-record.ts(56,33): error TS7006: Parameter 'chat' implicitly has an 'any' type.
+tests/symptoms-verification.test.ts(10,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(12,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(22,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(39,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(40,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(41,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(44,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(59,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(60,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(61,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(64,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(81,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(82,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(85,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(101,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(102,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(103,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(106,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(125,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(128,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(168,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(169,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(170,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(176,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(177,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(189,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(190,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(191,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(195,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(196,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(210,7): error TS2304: Cannot find name 'expect'.
+tests/symptoms-verification.test.ts(214,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(215,5): error TS2582: Cannot find name 'test'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/symptoms-verification.test.ts(231,7): error TS2304: Cannot find name 'expect'.

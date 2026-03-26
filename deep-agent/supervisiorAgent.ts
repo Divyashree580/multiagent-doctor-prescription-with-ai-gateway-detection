@@ -29,6 +29,7 @@ const llm = new ChatGroq({
     apiKey: process.env.GROQ_API_KEY,
     maxRetries: 1,
     maxTokens: 1500,
+    temperature: 0.7,
 })
 
 export const supervisorAgent = createReactAgent({
@@ -45,4 +46,5 @@ export const supervisorAgent = createReactAgent({
         PsychiatryExpertTool,
         PediatricsExpertTool
     ],
+    messageModifier: SUPERVISOR_PROMPT,
 });

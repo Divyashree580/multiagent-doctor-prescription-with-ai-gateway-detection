@@ -14,7 +14,6 @@ import { ChatGroq } from "@langchain/groq";
 import { HumanMessage } from "@langchain/core/messages";
 import { supervisorAgent } from "@/deep-agent/supervisiorAgent";
 import prisma from "@/lib/db";
- */
 
 import { logAgentCall, AuditLogger } from './auditLogger';
 import { MedicalSafetyDetector } from './medicalSafetyDetector';
@@ -375,11 +374,11 @@ export async function checkComplianceAlerts() {
   // Pattern analysis
   const typeDistribution = stats.byViolationType || [];
   const topViolationType = typeDistribution.length > 0
-    ? typeDistribution.reduce((a: any, b: any) => (b._count > a._count ? b : a))
+    ? typeDistribution.reduce((a: any, b: any) => (b.count > a.count ? b : a))
     : null;
 
-  if (topViolationType && topViolationType._count > 5) {
-    console.warn(`Pattern Alert: ${topViolationType.violationType} accounts for ${topViolationType._count} violations`);
+  if (topViolationType && topViolationType.count > 5) {
+    console.warn(`Pattern Alert: ${topViolationType.type} accounts for ${topViolationType.count} violations`);
   }
 }
 
@@ -578,7 +577,7 @@ export async function getDashboardData() {
 
   return {
     overview: {
-      totalRequests: todayStats.totalRequests,
+      totalViolations: todayStats.totalViolations,
       blocked: todayStats.blocked,
       blockRate: todayStats.totalViolations > 0
         ? ((todayStats.blocked / todayStats.totalViolations) * 100).toFixed(2) + '%'
